@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Audio Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  /* ── CONFIGURATION ── Edit EXPOSITION_CONFIG below to customise your guide */
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d0d1a;
+    --surface:   #14142b;
+    --surface2:  #1c1c38;
+    --gold:      #c9a96e;
+    --gold-soft: rgba(201,169,110,0.12);
+    --gold-glow: rgba(201,169,110,0.25);
+    --text:      #f0ece4;
+    --muted:     #8a8a9e;
+    --radius:    16px;
+    --ff-serif:  'Cormorant Garamond', Georgia, serif;
+    --ff-sans:   'DM Sans', sans-serif;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--ff-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── BACKGROUND DECORATION ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 80% 10%, rgba(201,169,110,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 10% 80%, rgba(100,80,180,0.10) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── SCREEN SYSTEM ── */
+  .screen {
+    display: none;
+    position: relative;
+    z-index: 1;
+    min-height: 100dvh;
+    padding: 0 20px 48px;
+    max-width: 480px;
+    margin: 0 auto;
+    animation: fadeUp .4s ease both;
+  }
+  .screen.active { display: flex; flex-direction: column; }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(18px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  /* ── HEADER ── */
+  .header {
+    padding: 28px 0 20px;
+    border-bottom: 1px solid rgba(201,169,110,0.15);
+    margin-bottom: 28px;
+  }
+  .expo-name {
+    font-family: var(--ff-serif);
+    font-size: clamp(1.7rem, 6vw, 2.2rem);
+    font-weight: 600;
+    color: var(--gold);
+    letter-spacing: .01em;
+    line-height: 1.15;
+  }
+  .expo-subtitle {
+    font-size: .8rem;
+    color: var(--muted);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ── LANGUAGE SCREEN ── */
+  #screen-lang { justify-content: center; }
+  .lang-hero {
+    text-align: center;
+    padding: 48px 0 40px;
+  }
+  .lang-icon {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: var(--gold-glow);
+    border: 1px solid var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem;
+    margin: 0 auto 20px;
+  }
+  .lang-title {
+    font-family: var(--ff-serif);
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .lang-sub { font-size: .9rem; color: var(--muted); }
+
+  .lang-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 8px;
+  }
+  .lang-btn {
+    background: var(--surface);
+    border: 1px solid rgba(201,169,110,0.2);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: background .2s, border-color .2s, transform .15s;
+    color: var(--text);
+    text-align: left;
+  }
+  .lang-btn:active { transform: scale(.98); }
+  .lang-btn:hover {
+    background: var(--surface2);
+    border-color: var(--gold);
+  }
+  .lang-flag { font-size: 1.8rem; line-height: 1; }
+  .lang-label { font-size: 1.1rem; font-weight: 500; }
+  .lang-native { font-size: .85rem; color: var(--muted); display: block; }
+
+  /* ── STATION LIST ── */
+  .station-count {
+    font-size: .8rem;
+    color: var(--muted);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .station-list { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .station-card {
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: background .2s, border-color .2s, transform .15s;
+  }
+  .station-card:hover { background: var(--surface2); border-color: rgba(201,169,110,0.3); }
+  .station-card:active { transform: scale(.99); }
+  .station-num {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--gold-soft);
+    border: 1px solid rgba(201,169,110,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--ff-serif);
+    font-size: 1rem;
+    color: var(--gold);
+    flex-shrink: 0;
+  }
+  .station-info { flex: 1; }
+  .station-name { font-weight: 500; font-size: .95rem; }
+  .station-tag { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+  .station-arrow { color: var(--muted); font-size: 1.1rem; flex-shrink: 0; }
+
+  /* Back button */
+  .back-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: .85rem;
+    font-family: var(--ff-sans);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    margin-bottom: 20px;
+    margin-top: 24px;
+    transition: color .2s;
+  }
+  .back-btn:hover { color: var(--text); }
+
+  /* ── STATION PLAYER ── */
+  .player-station-num {
+    font-family: var(--ff-serif);
+    font-size: 4rem;
+    color: var(--gold);
+    opacity: .3;
+    font-weight: 600;
+    line-height: 1;
+    margin-bottom: -8px;
+  }
+  .player-title {
+    font-family: var(--ff-serif);
+    font-size: clamp(1.6rem, 6vw, 2rem);
+    font-weight: 600;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .player-desc {
+    font-size: .9rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  /* Player card */
+  .player-card {
+    background: var(--surface);
+    border: 1px solid rgba(201,169,110,0.15);
+    border-radius: 24px;
+    padding: 28px 24px;
+    margin-bottom: 24px;
+  }
+  .player-waveform {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 3px;
+    height: 44px;
+    margin-bottom: 24px;
+  }
+  .wave-bar {
+    width: 3px;
+    border-radius: 2px;
+    background: rgba(201,169,110,0.2);
+    transition: background .3s;
+    animation: none;
+  }
+  .wave-bar.active {
+    background: var(--gold);
+    animation: wave var(--dur, .8s) ease-in-out infinite alternate;
+  }
+  @keyframes wave {
+    from { transform: scaleY(.3); }
+    to   { transform: scaleY(1); }
+  }
+
+  .time-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: .78rem;
+    color: var(--muted);
+    margin-bottom: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-track {
+    width: 100%;
+    height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 24px;
+    cursor: pointer;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--gold);
+    border-radius: 2px;
+    width: 0%;
+    transition: width .5s linear;
+  }
+
+  .player-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+  }
+  .ctrl-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 1.1rem;
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color .2s, background .2s;
+    width: 40px; height: 40px;
+  }
+  .ctrl-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+  .play-btn {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--gold);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform .15s, box-shadow .2s;
+    box-shadow: 0 0 0 0 var(--gold-glow);
+    color: var(--bg);
+    font-size: 1.4rem;
+  }
+  .play-btn:hover {
+    transform: scale(1.07);
+    box-shadow: 0 0 0 10px var(--gold-glow);
+  }
+  .play-btn:active { transform: scale(.97); }
+
+  /* Navigation pills */
+  .nav-pills {
+    display: flex;
+    gap: 10px;
+  }
+  .nav-pill {
+    flex: 1;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: .78rem;
+    color: var(--muted);
+    font-family: var(--ff-sans);
+    text-align: center;
+    transition: background .2s, border-color .2s;
+  }
+  .nav-pill:hover { background: var(--surface2); border-color: rgba(201,169,110,0.2); color: var(--text); }
+  .nav-pill:disabled { opacity: .3; cursor: not-allowed; }
+  .nav-pill span { display: block; color: var(--text); font-size: .9rem; font-weight: 500; }
+
+  /* Feedback CTA */
+  .feedback-cta {
+    background: linear-gradient(135deg, rgba(201,169,110,0.12), rgba(100,80,180,0.08));
+    border: 1px solid rgba(201,169,110,0.2);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s;
+    margin-top: 16px;
+  }
+  .feedback-cta:hover { border-color: var(--gold); }
+  .feedback-cta p { font-size: .85rem; color: var(--muted); margin-top: 4px; }
+
+  /* ── FEEDBACK SCREEN ── */
+  .feedback-heading {
+    font-family: var(--ff-serif);
+    font-size: 1.9rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .feedback-sub { font-size: .9rem; color: var(--muted); margin-bottom: 32px; }
+
+  .question-block { margin-bottom: 28px; }
+  .question-label {
+    font-weight: 500;
+    font-size: .95rem;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .question-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--gold-soft);
+    border: 1px solid rgba(201,169,110,0.3);
+    font-family: var(--ff-serif);
+    font-size: .85rem;
+    color: var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* Star rating */
+  .star-row { display: flex; gap: 10px; }
+  .star {
+    font-size: 2rem;
+    cursor: pointer;
+    color: rgba(201,169,110,0.2);
+    transition: color .15s, transform .1s;
+    user-select: none;
+  }
+  .star.filled { color: var(--gold); }
+  .star:hover { transform: scale(1.15); }
+
+  /* Text area */
+  .feedback-textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: var(--ff-sans);
+    font-size: .9rem;
+    resize: none;
+    height: 110px;
+    transition: border-color .2s;
+    line-height: 1.6;
+  }
+  .feedback-textarea:focus {
+    outline: none;
+    border-color: rgba(201,169,110,0.4);
+  }
+  .feedback-textarea::placeholder { color: var(--muted); }
+
+  /* Submit button */
+  .submit-btn {
+    width: 100%;
+    padding: 18px;
+    border-radius: var(--radius);
+    border: none;
+    background: var(--gold);
+    color: var(--bg);
+    font-family: var(--ff-sans);
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: opacity .2s, transform .15s;
+    letter-spacing: .02em;
+  }
+  .submit-btn:hover { opacity: .9; }
+  .submit-btn:active { transform: scale(.99); }
+  .submit-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── THANK YOU SCREEN ── */
+  #screen-thankyou {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .ty-icon {
+    width: 88px; height: 88px;
+    border-radius: 50%;
+    background: var(--gold-glow);
+    border: 1px solid var(--gold);
+    font-size: 2.5rem;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 28px;
+    animation: popIn .5s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  @keyframes popIn {
+    from { transform: scale(0); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+  .ty-title {
+    font-family: var(--ff-serif);
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--gold);
+  }
+  .ty-msg { font-size: .95rem; color: var(--muted); max-width: 300px; line-height: 1.7; }
+
+  /* RTL support */
+  [dir="rtl"] .station-card { flex-direction: row-reverse; }
+  [dir="rtl"] .station-arrow { transform: scaleX(-1); }
+  [dir="rtl"] .back-btn { flex-direction: row-reverse; }
+  [dir="rtl"] .nav-pills { flex-direction: row-reverse; }
+  [dir="rtl"] .lang-btn { flex-direction: row-reverse; }
+
+  /* Audio hidden */
+  audio { display: none; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     EXPOSITION CONFIGURATION  ← Edit everything here
+     ══════════════════════════════════════════════════════ -->
+<script>
+const EXPOSITION_CONFIG = {
+
+  // Exhibition name and subtitle shown in the header
+  name: {
+    en: "The Exhibition",
+    fr: "L'Exposition",
+    ar: "المعرض"
+  },
+  subtitle: {
+    en: "Audio Guide",
+    fr: "Guide Audio",
+    ar: "الدليل الصوتي"
+  },
+
+  // ── STATIONS ──────────────────────────────────────────
+  // Add or remove stations. For each station provide:
+  //   name: shown on the station card
+  //   desc: short description shown on player screen
+  //   audio: URL of the audio file for each language
+  //          (put your MP3/OGG files on Google Drive, Dropbox,
+  //           Cloudinary, or any hosting and paste the direct URL)
+  stations: [
+    {
+      name: { en: "Station 1 – Introduction",   fr: "Station 1 – Introduction",   ar: "المحطة 1 – مقدمة" },
+      desc: { en: "Welcome to the exhibition.", fr: "Bienvenue à l'exposition.",   ar: "مرحباً بكم في المعرض." },
+      audio: { en: "", fr: "", ar: "" }
+    },
+    {
+      name: { en: "Station 2 – Origins",        fr: "Station 2 – Origines",        ar: "المحطة 2 – الأصول" },
+      desc: { en: "Discover the origins.",       fr: "Découvrez les origines.",     ar: "اكتشف الأصول." },
+      audio: { en: "", fr: "", ar: "" }
+    },
+    {
+      name: { en: "Station 3 – The Journey",    fr: "Station 3 – Le Voyage",       ar: "المحطة 3 – الرحلة" },
+      desc: { en: "Follow the journey.",        fr: "Suivez le voyage.",            ar: "اتبع الرحلة." },
+      audio: { en: "", fr: "", ar: "" }
+    },
+    {
+      name: { en: "Station 4 – Materials",      fr: "Station 4 – Les Matériaux",   ar: "المحطة 4 – المواد" },
+      desc: { en: "Explore the materials.",     fr: "Explorez les matériaux.",      ar: "استكشف المواد." },
+      audio: { en: "", fr: "", ar: "" }
+    },
+    {
+      name: { en: "Station 5 – Craftsmanship", fr: "Station 5 – L'Artisanat",     ar: "المحطة 5 – الحرفية" },
+      desc: { en: "The art of making.",        fr: "L'art de créer.",              ar: "فن الصنع." },
+      audio: { en: "", fr: "", ar: "" }
+    },
+    {
+      name: { en: "Station 6 – Symbols",       fr: "Station 6 – Les Symboles",    ar: "المحطة 6 – الرموز" },
+      desc: { en: "Uncover hidden symbols.",   fr: "Découvrez les symboles.",      ar: "اكشف الرموز الخفية." },
+      audio: { en: "", fr: "", ar: "" }
+    },
+    {
+      name: { en: "Station 7 – Trade",         fr: "Station 7 – Le Commerce",     ar: "المحطة 7 – التجارة" },
+      desc: { en: "Ancient trade routes.",     fr: "Routes commerciales antiques.", ar: "طرق التجارة القديمة." },
+      audio: { en: "", fr: "", ar: "" }
+    },
+    {
+      name: { en: "Station 8 – Daily Life",    fr: "Station 8 – La Vie Quotidienne", ar: "المحطة 8 – الحياة اليومية" },
+      desc: { en: "Life through the ages.",   fr: "La vie à travers les âges.",    ar: "الحياة عبر العصور." },
+      audio: { en: "", fr: "", ar: "" }
+    },
+    {
+      name: { en: "Station 9 – Ritual",        fr: "Station 9 – Le Rituel",       ar: "المحطة 9 – الطقوس" },
+      desc: { en: "Sacred ceremonies.",       fr: "Cérémonies sacrées.",           ar: "الطقوس المقدسة." },
+      audio: { en: "", fr: "", ar: "" }
+    },
+    {
+      name: { en: "Station 10 – Architecture", fr: "Station 10 – L'Architecture", ar: "المحطة 10 – العمارة" },
+      desc: { en: "Built to last.",           fr: "Construit pour durer.",         ar: "بني ليدوم." },
+      audio: { en: "", fr: "", ar: "" }
+    },
+    {
+      name: { en: "Station 11 – Legacy",       fr: "Station 11 – L'Héritage",     ar: "المحطة 11 – الإرث" },
+      desc: { en: "What remains today.",      fr: "Ce qui reste aujourd'hui.",     ar: "ما تبقى اليوم." },
+      audio: { en: "", fr: "", ar: "" }
+    }
+  ],
+
+  // ── FEEDBACK QUESTIONS ────────────────────────────────
+  // Each question needs a label and a type: "stars" or "text"
+  feedback: {
+    questions: [
+      {
+        label: { en: "How would you rate your overall experience?", fr: "Comment évaluez-vous votre expérience globale ?", ar: "كيف تقيّم تجربتك الإجمالية؟" },
+        type: "stars"
+      },
+      {
+        label: { en: "Which station impressed you the most?",       fr: "Quelle station vous a le plus impressionné(e) ?",   ar: "أي محطة أثارت إعجابك أكثر؟" },
+        type: "text"
+      },
+      {
+        label: { en: "Any suggestions for improvement?",            fr: "Des suggestions d'amélioration ?",                  ar: "هل لديك اقتراحات للتحسين؟" },
+        type: "text"
+      }
+    ],
+    // Where to POST responses (leave empty to just log to console)
+    // You can use https://formspree.io (free tier) or your own endpoint
+    submitUrl: ""
+  },
+
+  // ── UI STRINGS ────────────────────────────────────────
+  ui: {
+    chooseLanguage: { en: "Choose your language", fr: "Choisissez votre langue", ar: "اختر لغتك" },
+    welcome:        { en: "Welcome",              fr: "Bienvenue",               ar: "مرحباً" },
+    stations:       { en: "Stations",             fr: "Stations",                ar: "المحطات" },
+    back:           { en: "← Back",               fr: "← Retour",                ar: "→ رجوع" },
+    play:           { en: "Play",                 fr: "Écouter",                 ar: "تشغيل" },
+    pause:          { en: "Pause",                fr: "Pause",                   ar: "إيقاف مؤقت" },
+    prev:           { en: "Previous",             fr: "Précédente",              ar: "السابقة" },
+    next:           { en: "Suivante",             fr: "Suivante",                ar: "التالية" },
+    listLabel:      { en: "All stations",         fr: "Toutes les stations",     ar: "جميع المحطات" },
+    feedbackCta:    { en: "Share your experience →", fr: "Partagez votre avis →", ar: "شارك تجربتك ←" },
+    feedbackCtaSub: { en: "End of the exhibition? We'd love to hear from you.", fr: "Fin de l'exposition ? Donnez-nous votre avis.", ar: "هل انتهيت من المعرض؟ نود سماع رأيك." },
+    feedbackTitle:  { en: "Your Feedback",        fr: "Votre Avis",              ar: "تقييمك" },
+    feedbackSub:    { en: "Thank you for visiting. Your opinion matters.", fr: "Merci de votre visite. Votre avis compte.", ar: "شكراً لزيارتك. رأيك يهمنا." },
+    submit:         { en: "Submit",               fr: "Envoyer",                 ar: "إرسال" },
+    submitting:     { en: "Sending…",             fr: "Envoi…",                  ar: "جارٍ الإرسال…" },
+    thankYou:       { en: "Thank You!",           fr: "Merci !",                 ar: "شكراً لك!" },
+    thankYouMsg:    { en: "Your feedback has been recorded. We hope you enjoyed the exhibition.", fr: "Votre avis a été enregistré. Nous espérons que vous avez apprécié l'exposition.", ar: "تم تسجيل تقييمك. نأمل أن تكون قد استمتعت بالمعرض." }
+  }
+};
+</script>
+<!-- ══ END CONFIGURATION ══════════════════════════════ -->
+
+
+<!-- ── SCREEN: LANGUAGE SELECTION ── -->
+<div id="screen-lang" class="screen active">
+  <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+    <div class="lang-hero">
+      <div class="lang-icon">🎧</div>
+      <div class="lang-title" id="lang-welcome">Welcome</div>
+      <div class="lang-sub" id="lang-choose">Choose your language</div>
+    </div>
+    <div class="lang-grid">
+      <button class="lang-btn" onclick="selectLanguage('en')">
+        <span class="lang-flag">🇬🇧</span>
+        <div>
+          <span class="lang-label">English</span>
+          <span class="lang-native">English</span>
+        </div>
+      </button>
+      <button class="lang-btn" onclick="selectLanguage('fr')">
+        <span class="lang-flag">🇫🇷</span>
+        <div>
+          <span class="lang-label">Français</span>
+          <span class="lang-native">French</span>
+        </div>
+      </button>
+      <button class="lang-btn" onclick="selectLanguage('ar')">
+        <span class="lang-flag">🇸🇦</span>
+        <div>
+          <span class="lang-label">العربية</span>
+          <span class="lang-native">Arabic</span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SCREEN: STATION LIST ── -->
+<div id="screen-list" class="screen">
+  <div class="header">
+    <div class="expo-name" id="list-expo-name"></div>
+    <div class="expo-subtitle" id="list-expo-sub"></div>
+  </div>
+  <div class="station-count" id="list-count"></div>
+  <div class="station-list" id="station-list"></div>
+</div>
+
+<!-- ── SCREEN: STATION PLAYER ── -->
+<div id="screen-player" class="screen">
+  <button class="back-btn" id="player-back" onclick="showList()"></button>
+  <div class="player-station-num" id="player-num"></div>
+  <div class="player-title" id="player-title"></div>
+  <div class="player-desc" id="player-desc"></div>
+
+  <div class="player-card">
+    <div class="player-waveform" id="waveform"></div>
+    <div class="time-row">
+      <span id="time-current">0:00</span>
+      <span id="time-total">0:00</span>
+    </div>
+    <div class="progress-track" id="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <div class="player-controls">
+      <button class="ctrl-btn" id="btn-rewind" onclick="seekRelative(-15)" title="−15s">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
+          <text x="12" y="14" text-anchor="middle" font-size="6" fill="currentColor" stroke="none" font-family="sans-serif">15</text>
+        </svg>
+      </button>
+      <button class="play-btn" id="btn-play" onclick="togglePlay()">
+        <svg id="icon-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,3 20,12 6,21"/></svg>
+        <svg id="icon-pause" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      </button>
+      <button class="ctrl-btn" id="btn-forward" onclick="seekRelative(15)" title="+15s">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-3.51"/>
+          <text x="12" y="14" text-anchor="middle" font-size="6" fill="currentColor" stroke="none" font-family="sans-serif">15</text>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="nav-pills">
+    <button class="nav-pill" id="btn-prev" onclick="navigateStation(-1)">
+      <span id="prev-label"></span>
+      <span id="prev-name" style="font-size:.78rem;color:var(--muted)"></span>
+    </button>
+    <button class="nav-pill" id="btn-next" onclick="navigateStation(1)">
+      <span id="next-label"></span>
+      <span id="next-name" style="font-size:.78rem;color:var(--muted)"></span>
+    </button>
+  </div>
+
+  <div class="feedback-cta" id="feedback-cta" onclick="showFeedback()" style="display:none">
+    <div style="font-weight:500" id="feedback-cta-text"></div>
+    <p id="feedback-cta-sub"></p>
+  </div>
+</div>
+
+<!-- ── SCREEN: FEEDBACK ── -->
+<div id="screen-feedback" class="screen">
+  <button class="back-btn" id="feedback-back" onclick="showList()"></button>
+  <div class="feedback-heading" id="fb-title"></div>
+  <div class="feedback-sub" id="fb-sub"></div>
+  <div id="questions-container"></div>
+  <button class="submit-btn" id="btn-submit" onclick="submitFeedback()"></button>
+</div>
+
+<!-- ── SCREEN: THANK YOU ── -->
+<div id="screen-thankyou" class="screen">
+  <div class="ty-icon">✓</div>
+  <div class="ty-title" id="ty-title"></div>
+  <p class="ty-msg" id="ty-msg"></p>
+</div>
+
+<audio id="audio-player"></audio>
+
+<script>
+// ── STATE ──────────────────────────────────────────────
+let lang = 'en';
+let currentStation = 0;
+let isPlaying = false;
+let ratings = {};
+const audio = document.getElementById('audio-player');
+const C = EXPOSITION_CONFIG;
+
+// ── UTILS ──────────────────────────────────────────────
+function t(obj) { return (obj && obj[lang]) || obj?.en || ''; }
+function fmtTime(s) {
+  if (!s || isNaN(s)) return '0:00';
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60).toString().padStart(2, '0');
+  return `${m}:${sec}`;
+}
+
+// ── SCREENS ───────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) { el.classList.add('active'); el.scrollTop = 0; }
+  window.scrollTo(0, 0);
+}
+
+// ── LANGUAGE ──────────────────────────────────────────
+function selectLanguage(l) {
+  lang = l;
+  const isRTL = l === 'ar';
+  document.documentElement.lang = l;
+  document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
+  buildStationList();
+  showList();
+}
+
+// ── STATION LIST ───────────────────────────────────────
+function buildStationList() {
+  document.getElementById('list-expo-name').textContent = t(C.name);
+  document.getElementById('list-expo-sub').textContent  = t(C.subtitle);
+  document.getElementById('list-count').textContent = `${C.stations.length} ${t(C.ui.stations)}`;
+
+  const container = document.getElementById('station-list');
+  container.innerHTML = '';
+  C.stations.forEach((s, i) => {
+    const card = document.createElement('div');
+    card.className = 'station-card';
+    card.innerHTML = `
+      <div class="station-num">${i + 1}</div>
+      <div class="station-info">
+        <div class="station-name">${t(s.name)}</div>
+        <div class="station-tag">${t(s.desc).substring(0, 50)}</div>
+      </div>
+      <div class="station-arrow">›</div>
+    `;
+    card.onclick = () => openStation(i);
+    container.appendChild(card);
+  });
+}
+
+function showList() {
+  pauseAudio();
+  showScreen('screen-list');
+}
+
+// ── PLAYER ────────────────────────────────────────────
+function buildWaveform() {
+  const wf = document.getElementById('waveform');
+  wf.innerHTML = '';
+  const heights = [30,50,70,55,80,65,40,90,60,75,45,85,55,70,35,80,60,50,70,40,85,65,75,55,90,45,60,80,50,65];
+  heights.forEach((h, i) => {
+    const bar = document.createElement('div');
+    bar.className = 'wave-bar';
+    bar.style.height = h + '%';
+    bar.style.setProperty('--dur', (.6 + Math.random() * .8).toFixed(2) + 's');
+    bar.style.animationDelay = (i * .04).toFixed(2) + 's';
+    wf.appendChild(bar);
+  });
+}
+
+function openStation(index) {
+  pauseAudio();
+  currentStation = index;
+  const s = C.stations[index];
+  const total = C.stations.length;
+
+  document.getElementById('player-num').textContent  = `0${index + 1}`.slice(-2);
+  document.getElementById('player-title').textContent = t(s.name);
+  document.getElementById('player-desc').textContent  = t(s.desc);
+  document.getElementById('player-back').textContent  = t(C.ui.back);
+
+  // Progress bar reset
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('time-current').textContent = '0:00';
+  document.getElementById('time-total').textContent   = '0:00';
+
+  buildWaveform();
+
+  // Load audio
+  const url = s.audio[lang] || s.audio.en || '';
+  if (url) {
+    audio.src = url;
+    audio.load();
+  } else {
+    audio.src = '';
+  }
+
+  // Nav pills
+  const prevBtn = document.getElementById('btn-prev');
+  const nextBtn = document.getElementById('btn-next');
+  document.getElementById('prev-label').textContent = t(C.ui.prev);
+  document.getElementById('next-label').textContent = t(C.ui.next);
+
+  if (index > 0) {
+    prevBtn.disabled = false;
+    document.getElementById('prev-name').textContent = `${index}`;
+  } else {
+    prevBtn.disabled = true;
+    document.getElementById('prev-name').textContent = '';
+  }
+
+  if (index < total - 1) {
+    nextBtn.disabled = false;
+    document.getElementById('next-name').textContent = `${index + 2}`;
+  } else {
+    nextBtn.disabled = true;
+    document.getElementById('next-name').textContent = '';
+  }
+
+  // Show feedback CTA on last station
+  const cta = document.getElementById('feedback-cta');
+  if (index === total - 1) {
+    cta.style.display = 'block';
+    document.getElementById('feedback-cta-text').textContent = t(C.ui.feedbackCta);
+    document.getElementById('feedback-cta-sub').textContent  = t(C.ui.feedbackCtaSub);
+  } else {
+    cta.style.display = 'none';
+  }
+
+  showScreen('screen-player');
+}
+
+function navigateStation(dir) {
+  const next = currentStation + dir;
+  if (next >= 0 && next < C.stations.length) openStation(next);
+}
+
+// ── AUDIO CONTROLS ────────────────────────────────────
+function togglePlay() {
+  if (!audio.src) { showNoAudio(); return; }
+  if (isPlaying) pauseAudio(); else playAudio();
+}
+
+function playAudio() {
+  audio.play().then(() => {
+    isPlaying = true;
+    document.getElementById('icon-play').style.display  = 'none';
+    document.getElementById('icon-pause').style.display = '';
+    document.querySelectorAll('.wave-bar').forEach(b => b.classList.add('active'));
+  }).catch(() => showNoAudio());
+}
+
+function pauseAudio() {
+  audio.pause();
+  isPlaying = false;
+  document.getElementById('icon-play').style.display  = '';
+  document.getElementById('icon-pause').style.display = 'none';
+  document.querySelectorAll('.wave-bar').forEach(b => b.classList.remove('active'));
+}
+
+function seekRelative(sec) {
+  if (!audio.src) return;
+  audio.currentTime = Math.max(0, Math.min(audio.duration || 0, audio.currentTime + sec));
+}
+
+function showNoAudio() {
+  // Graceful placeholder if audio URL not set yet
+  const msgs = { en:'Audio file not configured yet.', fr:'Fichier audio non configuré.', ar:'ملف الصوت غير مضبوط بعد.' };
+  alert(msgs[lang] || msgs.en);
+}
+
+// Progress tracking
+audio.addEventListener('timeupdate', () => {
+  const pct = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('time-current').textContent  = fmtTime(audio.currentTime);
+  document.getElementById('time-total').textContent    = fmtTime(audio.duration);
+});
+
+audio.addEventListener('ended', () => {
+  pauseAudio();
+  document.getElementById('progress-fill').style.width = '100%';
+});
+
+// Seek on progress click
+document.getElementById('progress-track').addEventListener('click', e => {
+  if (!audio.duration) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
+});
+
+// ── FEEDBACK ──────────────────────────────────────────
+function showFeedback() {
+  pauseAudio();
+  document.getElementById('fb-title').textContent = t(C.ui.feedbackTitle);
+  document.getElementById('fb-sub').textContent   = t(C.ui.feedbackSub);
+  document.getElementById('btn-submit').textContent = t(C.ui.submit);
+  document.getElementById('feedback-back').textContent = t(C.ui.back);
+  ratings = {};
+
+  const container = document.getElementById('questions-container');
+  container.innerHTML = '';
+
+  C.feedback.questions.forEach((q, qi) => {
+    const block = document.createElement('div');
+    block.className = 'question-block';
+
+    const label = document.createElement('div');
+    label.className = 'question-label';
+    label.innerHTML = `<div class="question-num">${qi + 1}</div> ${t(q.label)}`;
+    block.appendChild(label);
+
+    if (q.type === 'stars') {
+      const row = document.createElement('div');
+      row.className = 'star-row';
+      for (let s = 1; s <= 5; s++) {
+        const star = document.createElement('span');
+        star.className = 'star';
+        star.textContent = '★';
+        star.dataset.val = s;
+        star.dataset.q   = qi;
+        star.onclick = () => setStars(qi, s);
+        row.appendChild(star);
+      }
+      block.appendChild(row);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.className = 'feedback-textarea';
+      ta.placeholder = '…';
+      ta.dataset.q = qi;
+      block.appendChild(ta);
+    }
+
+    container.appendChild(block);
+  });
+
+  showScreen('screen-feedback');
+}
+
+function setStars(qi, val) {
+  ratings[qi] = val;
+  document.querySelectorAll(`.star[data-q="${qi}"]`).forEach(s => {
+    s.classList.toggle('filled', parseInt(s.dataset.val) <= val);
+  });
+}
+
+async function submitFeedback() {
+  const btn = document.getElementById('btn-submit');
+  btn.textContent = t(C.ui.submitting);
+  btn.disabled = true;
+
+  const answers = {};
+  C.feedback.questions.forEach((q, qi) => {
+    if (q.type === 'stars') {
+      answers[`q${qi + 1}_stars`] = ratings[qi] || 0;
+    } else {
+      const ta = document.querySelector(`.feedback-textarea[data-q="${qi}"]`);
+      answers[`q${qi + 1}_text`] = ta ? ta.value : '';
+    }
+  });
+  answers.language = lang;
+  answers.timestamp = new Date().toISOString();
+
+  console.log('Feedback submitted:', answers);
+
+  if (C.feedback.submitUrl) {
+    try {
+      await fetch(C.feedback.submitUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(answers)
+      });
+    } catch (e) { console.warn('Submit error:', e); }
+  }
+
+  document.getElementById('ty-title').textContent = t(C.ui.thankYou);
+  document.getElementById('ty-msg').textContent   = t(C.ui.thankYouMsg);
+  showScreen('screen-thankyou');
+}
+
+// ── INIT ──────────────────────────────────────────────
+// Show welcome text in all 3 languages on the language screen
+document.getElementById('lang-welcome').textContent = 'Welcome · Bienvenue · مرحباً';
+document.getElementById('lang-choose').textContent  = 'Choose your language · Choisissez · اختر لغتك';
+</script>
+</body>
+</html>
